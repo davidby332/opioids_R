@@ -1,49 +1,68 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+rm(list = ls())
 
-library(shiny)
+library(RPostgreSQL)
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(datasets)
+library(plotly)
 
-# Define UI for application that draws a histogram
+con <- dbConnect(PostgreSQL(), dbname = "opioids", user = "postgres")
+
+s_year <- 2018
+
+e_year <- 2018
+
+drug_name <- dbGetQuery(con, "SELECT DISTINCT gennme FROM sdud_time;")
+
+map_details <- list(
+    scope = 'usa',
+    projection = list(type = 'albers usa'),
+    showlakes = TRUE,
+    lakecolor = toRGB('white')
+)
+
+
+label_list <- list()
+
+label_list[['nrx']] <- 'Number of Prescriptions'
+label_list[['nur']] <- 'Number of Units'
+label_list[['nur_adj']] <- 'MME Units'
+
+
 ui <- fluidPage(
-
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("distPlot")
-        )
+    headerPanel('Example'),
+    sidebarPanel(
+        selectInput('measure','Measure', c('nrx', 'nur', 'nur_adj')),
+        selectInput('drug','Drug', drug_name$gennme),
+        selected = 'nrx'),
+    mainPanel(
+        plotlyOutput('plot')
     )
 )
 
-# Define server logic required to draw a histogram
 server <- function(input, output) {
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    temp_df <- dbGetQuery(con, "SELECT gennme, state_code, nrx, nur, nur_adj FROM sdud_time;")
 
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-    })
+    map_df <- reactive({temp_df %>% rename(meas = input$measure) %>%
+                                    group_by(state_code, gennme) %>%
+                                    summarise(meas = sum(meas)) %>%
+                                    filter(gennme %in% input$drug)})
+
+    output$plot <- renderPlotly(
+
+        fig <- plot_geo(map_df(), locationmode = 'USA-states') %>%
+                                 add_trace(z = ~meas,
+                                 locations = ~state_code,
+                                 color = ~meas,
+                                 colors = 'Purples') %>%
+            colorbar(title = input$measure, x = -0.2, y = 0.8) %>%
+            layout(geo = map_details)
+
+        )
+
 }
 
-# Run the application 
-shinyApp(ui = ui, server = server)
+shinyApp(ui,server)
