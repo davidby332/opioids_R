@@ -1,0 +1,13 @@
+name: opioids_CDC
+title: opioids_CDC
+username:
+account: davidby332
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3284617
+bundleId: 3897522
+url: https://davidby332.shinyapps.io/opioids_CDC/
+when: 1606178012.31225
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: deaths_data_formation.R|data/.DS_Store|data/deaths_98_18.txt|output/.DS_Store
